@@ -21,7 +21,7 @@ public class ProductsController(IGenericRepository<Product> repo) : BaseApiContr
 
     }
 
-    [HttpGet("{id : int}")] //api/products/2
+    [HttpGet("{id:int}")] //api/products/2
 
     public async Task<ActionResult<Product>> GetProduct(int id)
     {
