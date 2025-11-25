@@ -8,17 +8,37 @@ public class StoreContextSeed
 {
   public static async Task SeedAsync(StoreContext context)
   {
-    if (!context.Products.Any())
+    try
     {
-        var productsData = File.ReadAllText("../Infrastructure/Data/SeedData/products.json");
-      
-        var products = JsonSerializer.Deserialize<List<Product>>(productsData);
-      
-        if (products == null) return;
+      var existing = context.Products.Any();
+      Console.WriteLine($"StoreContextSeed: Products table has rows: {existing}");
 
+      if (!existing)
+      {
+        var productsData = File.ReadAllText("../Infrastructure/Data/SeedData/products.json");
+
+        var products = JsonSerializer.Deserialize<List<Product>>(productsData, new JsonSerializerOptions
+        {
+          PropertyNameCaseInsensitive = true
+        });
+
+        if (products == null)
+        {
+          Console.WriteLine("StoreContextSeed: No products found in JSON file.");
+          return;
+        }
+
+        Console.WriteLine($"StoreContextSeed: Seeding {products.Count} products...");
         context.Products.AddRange(products);
-       
-        await context.SaveChangesAsync();
+
+        var saved = await context.SaveChangesAsync();
+        Console.WriteLine($"StoreContextSeed: SaveChangesAsync returned {saved}.");
+      }
     }
-  }  
+    catch (Exception ex)
+    {
+      Console.WriteLine($"StoreContextSeed error: {ex}");
+      throw;
+    }
+  }
 }
