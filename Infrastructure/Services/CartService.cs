@@ -1,35 +1,32 @@
 using System;
-using System.Text.Json;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 using Core.Entities;
 using Core.Interfaces;
-using StackExchange.Redis;
+using System.Text.Json;
 
-namespace Infrastructure.Services;
-
-public class CartService(IConnectionMultiplexer redis) : ICartService
+namespace Infrastructure.Services
 {
-
-    private readonly IDatabase _database = redis.GetDatabase();
-
-    public async Task<bool> DeleteCartAsync(string key)
+    public class CartService : ICartService
     {
-        return await _database.KeyDeleteAsync(key);
-    }
+        // Thread-safe in-memory storage
+        private readonly ConcurrentDictionary<string, ShoppingCart> _carts = new();
 
-    public async Task<ShoppingCart?> GetCartAsync(string key)
-    {
-        var data = await _database.StringGetAsync(key);
+        public Task<bool> DeleteCartAsync(string key)
+        {
+            return Task.FromResult(_carts.TryRemove(key, out _));
+        }
 
-        return data.IsNullOrEmpty ? null : JsonSerializer.Deserialize<ShoppingCart>(data!);
-    }
+        public Task<ShoppingCart?> GetCartAsync(string key)
+        {
+            _carts.TryGetValue(key, out var cart);
+            return Task.FromResult(cart);
+        }
 
-    public async Task<ShoppingCart?> SetCartAsync(ShoppingCart cart)
-    {
-        var created = await _database.StringSetAsync(cart.Id,
-            JsonSerializer.Serialize(cart), TimeSpan.FromDays(30));
-
-        if (!created) return null;
-
-        return await GetCartAsync(cart.Id);
+        public Task<ShoppingCart?> SetCartAsync(ShoppingCart cart)
+        {
+            _carts[cart.Id] = cart;
+            return Task.FromResult(cart);
+        }
     }
 }

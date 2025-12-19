@@ -3,7 +3,6 @@ using Core.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
-using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,24 +10,27 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Ensure JSON property names use camelCase so the Angular client matches C# models
+        // Use camelCase for Angular compatibility
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
+
+// Configure DbContext
 builder.Services.AddDbContext<StoreContext>(options =>
-{
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
-});
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
+
+// Register repositories
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-builder.Services.AddSingleton<IConnectionMultiplexer>(config =>
-{
-    var connString = builder.Configuration.GetConnectionString("Redis")
-        ?? throw new Exception("Cannot get redis connection string");
-    var configuration = ConfigurationOptions.Parse(connString, true);
-    return ConnectionMultiplexer.Connect(configuration);
-});
-builder.Services.AddSingleton<ICartService, CartService>();
 
+// **Redis disabled**
+// Commented out completely:
+// builder.Services.AddSingleton<IConnectionMultiplexer>(...);
+
+// Register CartService without Redis dependency
+builder.Services.AddScoped<ICartService, CartService>();
+
+// Enable CORS for Angular
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
@@ -42,14 +44,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Middleware
 app.UseMiddleware<ExceptionMiddleware>();
-
-// CORS must be BEFORE MapControllers
 app.UseCors("AllowAngular");
-
 app.MapControllers();
 
+// Apply migrations and seed database
 try
 {
     using var scope = app.Services.CreateScope();
@@ -60,7 +60,7 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine(ex);
+    Console.WriteLine("Database migration/seed error: " + ex);
     throw;
 }
 

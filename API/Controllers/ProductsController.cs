@@ -10,6 +10,12 @@ namespace API.Controllers;
 
 public class ProductsController(IGenericRepository<Product> repo) : BaseApiController
 {
+    // [HttpGet]
+    // public ActionResult GetProductsCount()
+    // {
+    // return Ok(123);
+    // }
+
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<Product>>> GetProducts
